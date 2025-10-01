@@ -1,15 +1,40 @@
 import tkinter as tk
 from tkinter import messagebox
+from tkinter import ttk
 
 # Dictionary to store book locations
 book_locations = {}
 
+# def setup_styles():
+#     global style
+#     style = ttk.Style()
+#     style.configure(
+#         "Custom.TButton",
+#         font=("Arial", 12, "bold"),
+#         foreground="white",
+#         background="#0ac499",
+#         padding=8,
+#         relief="flat"
+#     )
+#     style.map(
+#         "Custom.TButton",
+#         background=[
+#             ("active", "#089e78"),   # hover color
+#             ("pressed", "#7a1306")   # click color
+#         ],
+#         foreground=[
+#             ("active", "black"),     # hover text color
+#             ("pressed", "white")     # click text color
+#         ]
+#     )
+
 def show_main_menu():
     clear_frame()
-    tk.Label(root, text="Welcome to BookWorm!", font=("Arial", 16)).pack(pady=20)
+    tk.Label(root, bg='white', text="Welcome to BookWorm!", font=("Arial",22)).pack(pady=12)
 
-    tk.Button(root, text="Add New Book", width=20, command=show_add_book).pack(pady=10)
-    tk.Button(root, text="Find Book Location", width=20, command=show_find_book).pack(pady=10)
+    tk.Button(root, text="Add New Book",highlightbackground="#ffffff" , command=show_add_book).pack(pady=10)
+    tk.Button(root, text="Find Book Location", highlightbackground="#ffffff", command=show_find_book).pack(pady=10)
+    tk.Button(root, text="Quit", width=2,highlightbackground="#ffffff", command=root.destroy).pack(padx=5,side= "left")
 
 def show_add_book():
     clear_frame()
@@ -37,15 +62,16 @@ def show_add_book():
         book_locations[title] = cubby
         messagebox.showinfo("Success", f"{title} saved in cubby {cubby}")
         show_main_menu()
-
-    tk.Button(root, text="Save", command=save_book).pack(pady=10)
-    tk.Button(root, text="Back", command=show_main_menu).pack()
+    button_frame = tk.Frame(root)
+    button_frame.pack(expand=True, anchor='center') 
+    tk.Button(button_frame, text="Save", command=save_book).pack(side= tk.LEFT)
+    tk.Button(button_frame, text="Back", command=show_main_menu).pack(side= tk.LEFT)
 
 def show_find_book():
     clear_frame()
-    tk.Label(root, text="Find Book Location", font=("Arial", 14)).pack(pady=10)
+    tk.Label(root, text="Find Book Location", font=("Arial", 18)).pack(pady=10)
 
-    tk.Label(root, text="Book Title:").pack()
+    tk.Label(root, text="Book Title:").pack(pady = 5)
     title_entry = tk.Entry(root, width=30)
     title_entry.pack()
 
@@ -57,8 +83,10 @@ def show_find_book():
         else:
             messagebox.showerror("Not Found", f" {title} not found in the database.")
 
-    tk.Button(root, text="Search", command=find_book).pack(pady=10)
-    tk.Button(root, text="Back", command=show_main_menu).pack()
+    button_frame = tk.Frame(root)
+    button_frame.pack(expand=True, anchor='center') 
+    tk.Button(button_frame, text="Search", command=find_book).pack(side= tk.LEFT)
+    tk.Button(button_frame, text="Back", command=show_main_menu).pack(side= tk.LEFT)
 
 def clear_frame():
     for widget in root.winfo_children():
@@ -67,7 +95,8 @@ def clear_frame():
 # Main window
 root = tk.Tk()
 root.title("BookWorm")
-root.geometry("300x300")
+root.geometry("400x220")
+root.config(bg="white")
 
 show_main_menu()
 root.mainloop()
