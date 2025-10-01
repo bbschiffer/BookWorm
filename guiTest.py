@@ -1,51 +1,73 @@
 import tkinter as tk
 from tkinter import messagebox
 
-allBookLocs = dict()
+# Dictionary to store book locations
+book_locations = {}
 
-def submit():
-    # Get text from entry boxes
-    title = book_entry.get()
-    cubby = cubby_entry.get()
-    if not title or not cubby:
-        messagebox.showwarning("Input Error", "Please fill in both fields.")
-        return
-    if not cubby.isdigit():
-        messagebox.showerror("Invalid Input", "Cubby must be a number.")
-        cubby_entry.delete(0, tk.END)  # clear the bad entry
-        return
-    # Save as global variables (or handle however you like)
-    global saved_title, saved_cubby
-    saved_title = title
-    saved_cubby = cubby
+def show_main_menu():
+    clear_frame()
+    tk.Label(root, text="Welcome to BookWorm!", font=("Arial", 16)).pack(pady=20)
 
-    print("Name entered:", saved_title)
-    print("Cubby entered:", saved_cubby)
+    tk.Button(root, text="Add New Book", width=20, command=show_add_book).pack(pady=10)
+    tk.Button(root, text="Find Book Location", width=20, command=show_find_book).pack(pady=10)
 
-    root.destroy()  # close the window after
-    # add to dictionary
-    allBookLocs[saved_title] =  saved_cubby # for later use
+def show_add_book():
+    clear_frame()
+    tk.Label(root, text="Add a New Book", font=("Arial", 14)).pack(pady=10)
 
-def locateBook(title):
-    return allBookLocs.get(title, "Book not found")
+    tk.Label(root, text="Book Title:").pack()
+    title_entry = tk.Entry(root, width=30)
+    title_entry.pack()
 
+    tk.Label(root, text="Cubby Location:").pack()
+    cubby_entry = tk.Entry(root, width=30)
+    cubby_entry.pack()
+
+    def save_book():
+        title = title_entry.get().strip()
+        cubby = cubby_entry.get().strip()
+
+        if not title or not cubby:
+            messagebox.showerror("Error", "Please enter both title and location!")
+            return
+        if not cubby.isdigit():
+            messagebox.showerror("Error", "Cubby location must be numeric!")
+            return
+
+        book_locations[title] = cubby
+        messagebox.showinfo("Success", f"{title} saved in cubby {cubby}")
+        show_main_menu()
+
+    tk.Button(root, text="Save", command=save_book).pack(pady=10)
+    tk.Button(root, text="Back", command=show_main_menu).pack()
+
+def show_find_book():
+    clear_frame()
+    tk.Label(root, text="Find Book Location", font=("Arial", 14)).pack(pady=10)
+
+    tk.Label(root, text="Book Title:").pack()
+    title_entry = tk.Entry(root, width=30)
+    title_entry.pack()
+
+    def find_book():
+        title = title_entry.get().strip()
+        if title in book_locations:
+            cubby = book_locations[title]
+            messagebox.showinfo("Book Found", f" {title} is located in cubby {cubby}.")
+        else:
+            messagebox.showerror("Not Found", f" {title} not found in the database.")
+
+    tk.Button(root, text="Search", command=find_book).pack(pady=10)
+    tk.Button(root, text="Back", command=show_main_menu).pack()
+
+def clear_frame():
+    for widget in root.winfo_children():
+        widget.destroy()
+
+# Main window
 root = tk.Tk()
-root.title("New Book Entry")
+root.title("BookWorm")
+root.geometry("300x300")
 
-# Name label + entry
-tk.Label(root, text="Enter Book Title:").pack(padx=10, pady=5)
-book_entry = tk.Entry(root, width=30)
-book_entry.pack(padx=10, pady=5)
-
-# Age label + entry
-tk.Label(root, text="Enter the cubby you placed the book in:").pack(padx=10, pady=5)
-cubby_entry = tk.Entry(root, width=30)
-cubby_entry.pack(padx=10, pady=5)
-
-# Submit button
-tk.Button(root, text="Submit", command=submit).pack(padx=10, pady=10)
-
+show_main_menu()
 root.mainloop()
-
-# After window closes, the inputs are available
-print("Saved values -> Name:", saved_title, ", Age:", saved_cubby)
