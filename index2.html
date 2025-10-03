@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>Item→Bin 跟踪（aruco_basket）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <style>
+    body { padding: 20px; }
+    .badge-dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:6px; }
+    .on { background:#28a745; } .off { background:#6c757d; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  </style>
+</head>
+<body>
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h4 mb-0">Item→Bin 跟踪（aruco_basket）</h1>
+    <a class="btn btn-sm btn-outline-secondary" href="/health">健康检查</a>
+  </div>
+
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+        <div class="col-12 col-md-4">
+          <label class="form-label">选择物品（item）</label>
+          <select id="itemSelect" class="form-select"></select>
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label">时间窗口（秒）</label>
+          <input id="winInput" type="number" min="1" value="{{ default_window }}" class="form-control" />
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label d-block">操作</label>
+          <button class="btn btn-primary" id="btnTrack">开始/刷新</button>
+        </div>
+        <div class="col-12 col-md-2">
+          <div class="text-muted">筐子起始ID：<span class="mono">{{ basket_id_min }}</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="errorBox" class="alert alert-danger d-none"></div>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h5 class="card-title">包含该物品的筐子（当前）</h5>
+      <div class="table-responsive">
+        <table class="table table-striped table-sm">
+          <thead>
+            <tr>
+              <th>篮ID</th>
+              <th>名称</th>
+              <th>物品最后出现</th>
+              <th>篮在场</th>
+              <th>篮最后在场时间</th>
+              <th>X</th><th>Y</th><th>Z</th>
+            </tr>
+          </thead>
+          <tbody id="binsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const err = document.getElementById('errorBox');
+    function setErr(msg){ err.textContent = msg; err.classList.remove('d-none'); }
+    function clrErr(){ err.textContent=''; err.classList.add('d-none'); }
+
+    async function loadItems(){
+      try{
+        const res = await fetch('/api/items');
+        const data = await res.json();
+        if(!data.ok){ setErr(data.error||'加载物品失败'); return; }
+        const sel = document.getElementById('itemSelect');
+        sel.innerHTML = data.items.map(it => {
+          const name = (it.name && it.name.trim()) ? ` (${it.name})` : '';
+          return `<option value="${it.id}">${it.id}${name}</option>`;
+        }).join('');
+      }catch(e){ setErr(String(e)); }
+    }
+
+    function renderBins(list){
+      const body = document.getElementById('binsBody');
+      body.innerHTML = list.map(row => {
+        const present = (row.present === 1);
+        const dot = present ? '<span class="badge-dot on"></span>在场' : '<span class="badge-dot off"></span>不在';
+        const x = (row.x==null? '': Number(row.x).toFixed(3));
+        const y = (row.y==null? '': Number(row.y).toFixed(3));
+        const z = (row.z==null? '': Number(row.z).toFixed(3));
+        return `<tr>
+          <td class="mono">${row.basket_id}</td>
+          <td>${row.basket_name||''}</td>
+          <td>${row.last_seen||''}</td>
+          <td>${dot}</td>
+          <td>${row.present_last_seen_local||''}</td>
+          <td>${x}</td><td>${y}</td><td>${z}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function trackOnce(){
+      try{
+        clrErr();
+        const itemId = document.getElementById('itemSelect').value;
+        const win = document.getElementById('winInput').value || 30;
+        const res = await fetch(`/api/track_item?item_id=${encodeURIComponent(itemId)}&window=${encodeURIComponent(win)}`);
+        const data = await res.json();
+        if(!data.ok){ setErr(data.error||'跟踪失败'); return; }
+        renderBins(data.bins||[]);
+      }catch(e){ setErr(String(e)); }
+    }
+
+    document.getElementById('btnTrack').addEventListener('click', trackOnce);
+    loadItems().then(trackOnce);
+    setInterval(trackOnce, 3000);
+  </script>
+</body>
+</html>
