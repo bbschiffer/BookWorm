@@ -19,6 +19,8 @@
 # - present_now  = presence.present as of now
 # - Timestamps are normalized: if >1e12 treat as milliseconds (divide by 1000)
 
+# http://127.0.0.1:5000/
+
 import os
 import sqlite3
 import pandas as pd
@@ -542,3 +544,4 @@ def health():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
