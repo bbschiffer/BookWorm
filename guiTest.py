@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 from tkinter import ttk
 
+
 # Dictionary to store book locations
 book_locations = {}
 
@@ -38,15 +39,15 @@ def show_main_menu():
 
 def show_add_book():
     clear_frame()
-    tk.Label(root, text="Add a New Book", font=("Arial", 14)).pack(pady=10)
+    tk.Label(root, text="Add a New Book", font=("Arial", 18)).pack(pady=10)
 
-    tk.Label(root, text="Book Title:").pack()
+    tk.Label(root, text="Book Title:",font=("Arial", 12)).pack()
     title_entry = tk.Entry(root, width=30)
-    title_entry.pack()
+    title_entry.pack(pady=5)
 
-    tk.Label(root, text="Cubby Location:").pack()
+    tk.Label(root, text="Cubby Location:",font=("Arial", 12)).pack()
     cubby_entry = tk.Entry(root, width=30)
-    cubby_entry.pack()
+    cubby_entry.pack(pady=5)
 
     def save_book():
         title = title_entry.get().strip()
@@ -64,29 +65,44 @@ def show_add_book():
         show_main_menu()
     button_frame = tk.Frame(root)
     button_frame.pack(expand=True, anchor='center') 
-    tk.Button(button_frame, text="Save", command=save_book).pack(side= tk.LEFT)
-    tk.Button(button_frame, text="Back", command=show_main_menu).pack(side= tk.LEFT)
+    tk.Button(root, text="Save", command=save_book).pack()
+    tk.Button(root, text="Back", width=2, command=show_main_menu).pack(side= tk.LEFT, pady=10)
 
 def show_find_book():
     clear_frame()
     tk.Label(root, text="Find Book Location", font=("Arial", 18)).pack(pady=10)
 
-    tk.Label(root, text="Book Title:").pack(pady = 5)
+    tk.Label(root, text="Book Title:",font=("Arial", 12)).pack(pady = 5)
     title_entry = tk.Entry(root, width=30)
     title_entry.pack()
 
     def find_book():
         title = title_entry.get().strip()
-        if title in book_locations:
+        if not title:
+            messagebox.showerror("Error", "Please enter a book title!")
+            return
+        elif title in book_locations:
             cubby = book_locations[title]
             messagebox.showinfo("Book Found", f" {title} is located in cubby {cubby}.")
         else:
             messagebox.showerror("Not Found", f" {title} not found in the database.")
+    
+    def retrieve_book():
+        title = title_entry.get().strip()
+        if not title:
+            messagebox.showerror("Error", "Please enter a book title!")
+            return
+        elif title in book_locations:
+            #del book_locations[title]
+            messagebox.showinfo("Book retrieved", "BEN ADD FUNCTIONALITY TO MOVE MOTORS HERE")
+        else:
+            messagebox.showinfo("Not found", f"BEN ADD FUNCTIONALITY TO MOVE MOTORS HERE")
 
     button_frame = tk.Frame(root)
     button_frame.pack(expand=True, anchor='center') 
     tk.Button(button_frame, text="Search", command=find_book).pack(side= tk.LEFT)
-    tk.Button(button_frame, text="Back", command=show_main_menu).pack(side= tk.LEFT)
+    tk.Button(button_frame, text="Retrieve", command=retrieve_book).pack(side= tk.LEFT) # REPLACE FIND_BOOK WITH RETRIEVE_BOOK
+    tk.Button(root, text="Back", width=2, command=show_main_menu).pack(side= tk.LEFT, pady=10)
 
 def clear_frame():
     for widget in root.winfo_children():
@@ -95,7 +111,7 @@ def clear_frame():
 # Main window
 root = tk.Tk()
 root.title("BookWorm")
-root.geometry("400x220")
+root.geometry("400x250")
 root.config(bg="white")
 
 show_main_menu()
