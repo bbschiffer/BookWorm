@@ -1,6 +1,11 @@
 import tkinter as tk
 from tkinter import messagebox
 from tkinter import ttk
+import os
+import sqlite3
+import pandas as pd
+
+DB = os.getenv("PRESENCE_DB", "presence.db")
 
 
 # Dictionary to store book locations
@@ -31,7 +36,7 @@ book_locations = {}
 
 def show_main_menu():
     clear_frame()
-    tk.Label(root, bg='white', text="Welcome to BookWorm!", font=("Arial",22)).pack(pady=12)
+    tk.Label(root, bg='white', text="Welcome to BookWorm!",foreground="black", font=("Arial",22)).pack(pady=12)
 
     tk.Button(root, text="Add New Book",highlightbackground="#ffffff" , command=show_add_book).pack(pady=10)
     tk.Button(root, text="Find Book Location", highlightbackground="#ffffff", command=show_find_book).pack(pady=10)
@@ -70,10 +75,10 @@ def show_add_book():
 
 def show_find_book():
     clear_frame()
-    tk.Label(root, text="Find Book Location", font=("Arial", 18)).pack(pady=10)
+    tk.Label(root, text="Find Book Location",background="white", foreground="black", font=("Arial", 18)).pack(pady=10)
 
-    tk.Label(root, text="Book Title:",font=("Arial", 12)).pack(pady = 5)
-    title_entry = tk.Entry(root, width=30)
+    tk.Label(root, text="Book Title:",background="white",foreground="black",font=("Arial", 12)).pack(pady = 5)
+    title_entry = tk.Entry(root, width=30,background="white")
     title_entry.pack()
 
     def find_book():
@@ -86,6 +91,20 @@ def show_find_book():
             messagebox.showinfo("Book Found", f" {title} is located in cubby {cubby}.")
         else:
             messagebox.showerror("Not Found", f" {title} not found in the database.")
+    
+    def find_book2():
+        title = title_entry.get().strip()
+        if not title:
+            messagebox.showerror("Error", "Please enter a book title!")
+            return
+        conn = sqlite3.connect(DB)
+        cursor = conn.cursor()
+        #cursor.execute("SELECT name FROM markers WHERE id = ?", (int(title),))
+        cursor.execute("SELECT b.name FROM basket_items bi JOIN markers m ON m.id = bi.item_id \
+            JOIN markers b ON b.id = bi.basket_id WHERE m.name = ?", (title,))
+        ids = cursor.fetchone()[0] # Fetch the first result
+        messagebox.showinfo("CUBBY NAME", f"{title} is in cubby: {ids}")
+        conn.close()
     
     def retrieve_book():
         title = title_entry.get().strip()
@@ -100,9 +119,9 @@ def show_find_book():
 
     button_frame = tk.Frame(root)
     button_frame.pack(expand=True, anchor='center') 
-    tk.Button(button_frame, text="Search", command=find_book).pack(side= tk.LEFT)
-    tk.Button(button_frame, text="Retrieve", command=retrieve_book).pack(side= tk.LEFT) # REPLACE FIND_BOOK WITH RETRIEVE_BOOK
-    tk.Button(root, text="Back", width=2, command=show_main_menu).pack(side= tk.LEFT, pady=10)
+    tk.Button(button_frame, text="Search", highlightbackground="white",command=find_book2).pack(side= tk.LEFT)
+    tk.Button(button_frame, text="Retrieve", highlightbackground="white", command=retrieve_book).pack(side= tk.LEFT) # REPLACE FIND_BOOK WITH RETRIEVE_BOOK
+    tk.Button(root, text="Back", width=2, highlightbackground="white",foreground="black", command=show_main_menu).pack(side= tk.LEFT, pady=10)
 
 def clear_frame():
     for widget in root.winfo_children():
