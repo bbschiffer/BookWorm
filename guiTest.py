@@ -6,6 +6,7 @@ import sqlite3
 import pandas as pd
 
 DB = os.getenv("PRESENCE_DB", "presence.db")
+BASKET_ID_MIN = int(os.getenv("BASKET_ID_MIN", "100"))
 
 
 # Dictionary to store book locations
@@ -101,7 +102,7 @@ def show_find_book():
         cursor = conn.cursor()
         #cursor.execute("SELECT name FROM markers WHERE id = ?", (int(title),))
         cursor.execute("SELECT b.name FROM basket_items bi JOIN markers m ON m.id = bi.item_id \
-            JOIN markers b ON b.id = bi.basket_id WHERE m.name = ?", (title,))
+            JOIN markers b ON b.id = bi.basket_id WHERE m.name = ? AND b.id > ?", (title,BASKET_ID_MIN))
         ids = cursor.fetchone()[0] # Fetch the first result
         messagebox.showinfo("CUBBY NAME", f"{title} is in cubby: {ids}")
         conn.close()
