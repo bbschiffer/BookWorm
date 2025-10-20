@@ -343,7 +343,7 @@ HTML_TRACK = """
           <label class="form-label">Selected item</label>
           <div class="input-group">
             <select id="itemSelect" class="form-select"></select>
-            <button class="btn btn-outline-secondary" type="button" id="btnRename">✏️ 改名</button>
+            <button class="btn btn-outline-secondary" type="button" id="btnRename">✏️ Rename</button>
           </div>
           <div class="form-text help-fixed">&nbsp;</div> 
         </div>
@@ -456,8 +456,10 @@ HTML_TRACK = """
     async function renameSelectedItem(){
       try{
         const sel = document.getElementById('itemSelect');
-        const id  = parseInt(sel.value, 10);
-        if(!id){ alert('Select an item'); return; }
+        const idStr = sel.value;
+        if (idStr === "" || Number.isNaN(Number(idStr))) {alert('Select an item');return;}
+        const id = Number(idStr);      // id 可以是 0
+
         const currentText = sel.options[sel.selectedIndex]?.text || '';
         const curName = (currentText.includes('(') && currentText.includes(')'))
           ? currentText.slice(currentText.indexOf('(')+1, currentText.indexOf(')')).trim()
@@ -873,7 +875,7 @@ def api_markers_rename():
     """
     try:
         payload = request.get_json(silent=True) or {}
-        
+        mid_raw = payload.get("id", None)
         try:
             mid = int(mid_raw)
         except (TypeError, ValueError):
@@ -949,4 +951,6 @@ def health():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+
 
