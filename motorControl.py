@@ -14,6 +14,40 @@ GPIO.setup(DIR_PIN, GPIO.OUT)
 GPIO.output(PUL_PIN, GPIO.LOW)
 GPIO.output(DIR_PIN, GPIO.HIGH)
 
+# --- GPIO setup ---
+GPIO.setmode(GPIO.BCM)  # or GPIO.BOARD if you prefer physical pin numbering
+
+# Define your 6 pins here (BCM numbering)
+pins = [5, 6, 13, 19, 17, 21]
+
+# Create boolean flags for each pin
+pin_flags = {pin: False for pin in pins}
+
+# Callback function for interrupts
+def pin_callback(channel):
+    pin_flags[channel] = True
+    print(f"Falling edge detected on GPIO {channel}")
+
+# Set up each pin as input with pull-up resistor and attach interrupt
+for pin in pins:
+    GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+    GPIO.add_event_detect(pin, GPIO.FALLING, callback=pin_callback, bouncetime=100)
+
+try:
+    print("Monitoring pins for falling edges. Press Ctrl+C to exit.")
+    while True:
+        # (Optional) show flag states for debugging
+        print(pin_flags)
+        time.sleep(1)
+
+except KeyboardInterrupt:
+    print("\nExiting cleanly...")
+
+finally:
+    GPIO.cleanup()
+
+
+
 def moveMotor(distance, velocity):
     #400 pulses per revolution, 8mm per revolution
     
