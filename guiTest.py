@@ -1,7 +1,8 @@
 import tkinter as tk
 from tkinter import messagebox
 from tkinter import ttk
-
+import motorControl
+import pandas as pd, time
 
 # Dictionary to store book locations
 book_locations = {}
@@ -93,16 +94,57 @@ def show_find_book():
             messagebox.showerror("Error", "Please enter a book title!")
             return
         elif title in book_locations:
+        
             #del book_locations[title]
-            messagebox.showinfo("Book retrieved", "BEN ADD FUNCTIONALITY TO MOVE MOTORS HERE")
+            
+            cubby = book_locations[title]
+            x_cubby = get_location(cubby)
+            motorControl.moveMotor(x_cubby,.2)
+            print(" ")
+            
+            print("End effector retrieving container")
+            time.sleep(1) #Sleep command to represent end effector moving
+            print(" ")
+            
+            x_dropoff = get_location("Dropoff")
+            distance = x_dropoff - x_cubby
+            motorControl.moveMotor(distance,.2);
+            print(" ")
+            
+            print("End effector depositing container")
+            time.sleep(1) #Sleep command to represent end effector moving
+            print(" ")
+            
+            messagebox.showinfo("Book retrieved", "Please take book from cubby")
         else:
-            messagebox.showinfo("Not found", f"BEN ADD FUNCTIONALITY TO MOVE MOTORS HERE")
+            messagebox.showinfo("Not found", "Book not found")
+            
+            show_done_menu()
 
     button_frame = tk.Frame(root)
     button_frame.pack(expand=True, anchor='center') 
     tk.Button(button_frame, text="Search", command=find_book).pack(side= tk.LEFT)
     tk.Button(button_frame, text="Retrieve", command=retrieve_book).pack(side= tk.LEFT) # REPLACE FIND_BOOK WITH RETRIEVE_BOOK
     tk.Button(root, text="Back", width=2, command=show_main_menu).pack(side= tk.LEFT, pady=10)
+
+def show_done_menu():
+    clear_frame()
+    tk.Label(root, text="Return Cubby?", font=("Arial", 18)).pack(pady=10)
+
+    tk.Label(root, text="(Y/N)",font=("Arial", 12)).pack(pady = 5)
+    return_entry = tk.Entry(root, width=30)
+    return_entry.pack()
+
+def get_location(location):
+    ldf = pd.read_csv('LocationDatabase.csv')
+    
+    # Filter the DataFrame
+    result = ldf[ldf["Location"].str.contains(str(location))]
+    
+    xCoord = result.iloc[0]["X"]
+    #yCoord = result.iloc[0]["Y"]
+    return xCoord
+    
 
 def clear_frame():
     for widget in root.winfo_children():
