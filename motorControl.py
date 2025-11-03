@@ -10,9 +10,8 @@ GPIO.setmode(GPIO.BOARD)
 GPIO.setup(PU_pin, GPIO.OUT)
 GPIO.setup(DR_pin, GPIO.OUT)
 
-# Initialize pins
+# Initialize PU pin
 GPIO.output(PU_pin, GPIO.LOW)
-GPIO.output(DR_pin, GPIO.LOW)
 
 def moveMotor(distance, velocity):
     #400 pulses per revolution, 8mm per revolution
@@ -21,6 +20,12 @@ def moveMotor(distance, velocity):
     num_pulses = int(rotations*400);
     travel_time = abs(distance/velocity);
     step_delay = travel_time/num_pulses;
+    
+    #Initialize DR pin
+    if distance > 0:
+        GPIO.output(DR_pin, GPIO.LOW)
+    else:
+        GPIO.output(DR_pin, GPIO.HIGH)
     
     #step_delay = .01
     
