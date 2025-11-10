@@ -58,13 +58,12 @@ def moveMotor(distance, velocity):
 def moveGantry(x_distance, y_distance, velocity):
     #400 pulses per revolution, 8mm per revolution
     
-    GPIO.setmode(GPIO.BOARD)
-    
     #X distance actions
     
-    #Set pin numbers
     PU_x = 13
     DR_x = 11
+
+    GPIO.setmode(GPIO.BOARD)
 
     # Setup pins
     GPIO.setup(PU_x, GPIO.OUT)
@@ -84,31 +83,6 @@ def moveGantry(x_distance, y_distance, velocity):
     else:
         GPIO.output(DR_x, GPIO.HIGH)
     
-    
-    #Y distance actions
-    
-    #Set pin numbers
-    PU_y = 8
-    DR_y = 10
-
-    # Setup pins
-    GPIO.setup(PU_y, GPIO.OUT)
-    GPIO.setup(DR_y, GPIO.OUT)
-
-    # Initialize PU pin
-    GPIO.output(PU_y, GPIO.LOW)
-
-    rotations_y = abs(distance_y)/.008;
-    num_pulses_y = int(rotations_y*400);
-    travel_time_y = abs(distance_y/velocity);
-    step_delay_y = travel_time_y/num_pulses_y;
-    
-    #Initialize DR pin
-    if distance_y > 0:
-        GPIO.output(DR_y, GPIO.LOW)
-    else:
-        GPIO.output(DR_y, GPIO.HIGH)
-    
     #step_delay = .01
     
     #num_pulses = 50000
@@ -122,17 +96,11 @@ def moveGantry(x_distance, y_distance, velocity):
     #print("Pulse delay:",step_delay)
 
     try:
-        for i in range(int(max(num_pulses_x, num_pulses_y)/2 + 1)):
-            if i < num_pulses_x:
-                GPIO.output(PU_x, GPIO.HIGH)
-            if i < num_pulses_y:
-                GPIO.output(PU_y, GPIO.HIGH)
+        for i in range(int(num_pulses/2 + 1)):
+            GPIO.output(PU_pin, GPIO.HIGH)
             time.sleep(step_delay)
             #print("pulse",i)
-            if i < num_pulses_x:
-                GPIO.output(PU_x, GPIO.LOW)
-            if i < num_pulses_y:
-                GPIO.output(PU_y, GPIO.LOW)
+            GPIO.output(PU_pin, GPIO.LOW)
             time.sleep(step_delay)
         
     except:
