@@ -4,7 +4,6 @@ import RPi.GPIO as GPIO
 PUL_PIN = 26
 DIR_PIN = 12
 
-GPIO.setmode(GPIO.BCM)
 
 # Setup pins
 GPIO.setup(PUL_PIN, GPIO.OUT)
@@ -15,7 +14,7 @@ GPIO.output(PUL_PIN, GPIO.LOW)
 GPIO.output(DIR_PIN, GPIO.HIGH)
 
 # --- GPIO setup ---
-GPIO.setmode(GPIO.BCM)  # or GPIO.BOARD if you prefer physical pin numbering
+GPIO.setmode(GPIO.BOARD)  # or GPIO.BOARD if you prefer physical pin numbering
 
 # Define your 6 pins here (BCM numbering)
 pins = [5, 6, 13, 19, 17, 21]
