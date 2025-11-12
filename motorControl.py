@@ -13,7 +13,10 @@ PU_y = 8
 DR_y = 10
 #X axis limit switches
 limit_upper_x = 37
-limit_lower_x = 40 
+limit_lower_x = 40
+#Y axis limit switches (add these)
+limit_upper_y = 9999
+limit_lower_y = 9999
 
 #SETUP PINS
 GPIO.setup(PU_x, GPIO.OUT)
@@ -142,5 +145,51 @@ def moveGantry(x_distance, y_distance, velocity):
     finally:
         GPIO.cleanup()
         print("GPIO cleanup done.")
+
+def zeroGantry(x_position, y_position):
+
+    #X AXIS ACTIONS
+    
+    # Initialize PU and DR pins
+    GPIO.output(PU_x, GPIO.LOW)
+    GPIO.output(DR_x, GPIO.HIGH)
+    
+    #Y AXIS ACTIONS
+    
+    # Initialize PU and DR pins
+    GPIO.output(PU_y, GPIO.LOW)
+    GPIO.output(DR_x, GPIO.HIGH)
+    
+    #50,000 pulses per meter.
+    #1 m/s = 50,000 / s
+    step_delay = .001
+    
+    limit_x_pressed = 0
+    limit_y_pressed = 0
+    while limit_x_pressed != 1 and limit_y_pressed != 1:
+            
+        #Pulse each motor high until it has reached num_pulses_i
+        if limit_x_pressed != 1:
+            GPIO.output(PU_x, GPIO.HIGH)
+        if i <= num_pulses_y:
+            GPIO.output(PU_y, GPIO.HIGH)
+        time.sleep(step_delay)
+        
+        #Pulse each motor low until it has reached num_pulses_i
+        if limit_x_pressed != 1:
+            GPIO.output(PU_x, GPIO.LOW)
+        if limit_y_pressed != 1:
+            GPIO.output(PU_y, GPIO.LOW)
+        time.sleep(step_delay)
+
+        #x axis limit switch failsafe
+        if GPIO.input(limit_lower_x) == 0
+            limit_x_pressed = 1
+        
+        #x axis limit switch failsafe
+        if GPIO.input(limit_lower_y) == 0
+            limit_y_pressed = 1
+            
+        
 
 moveMotor(.08, 0.002) #One rotation at .002 m/s (4 second test)
