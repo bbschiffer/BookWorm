@@ -57,6 +57,9 @@ def show_add_book():
     def save_book():
         title = title_entry.get().strip()
         cubby = cubby_entry.get().strip()
+        
+        conn = sqlite3.connect(DB)
+        cursor = conn.cursor()
 
         if not title or not cubby:
             messagebox.showerror("Error", "Please enter both title and location!")
@@ -64,9 +67,22 @@ def show_add_book():
         if not cubby.isdigit():
             messagebox.showerror("Error", "Cubby location must be numeric!")
             return
-
+        # Save to database
+        marker_id = 42 # get_marker_id_somehow()
+        cursor.execute("""
+            UPDATE markers
+            SET name = ?
+            WHERE id = ?
+        """, (title, marker_id))
+        
+        cursor.execute("""INSERT INTO basket_items (basket_id, item_id)
+            VALUES (?, ?)""", (int(cubby)+100, marker_id)) #because cubby IDs start at 100
+        conn.commit()
+        
+        
         book_locations[title] = cubby
         messagebox.showinfo("Success", f"{title} saved in cubby {cubby}")
+        conn.close()
         show_main_menu()
     button_frame = tk.Frame(root)
     button_frame.pack(expand=True, anchor='center') 
