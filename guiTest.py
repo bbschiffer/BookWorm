@@ -4,9 +4,13 @@ from tkinter import ttk
 import os
 import sqlite3
 import pandas as pd
+import time
+from functionsToCall import *
 
 DB = os.getenv("PRESENCE_DB", "presence.db")
 
+[aruco_dict_name, marker_length, camera, yaml ,db_path, presence_timeout] = init()
+#begin_camera_detection(aruco_dict_name, marker_length, camera, yaml, db_path, presence_timeout)
 
 # Dictionary to store book locations
 book_locations = {}
@@ -44,7 +48,7 @@ def show_main_menu():
 
 def show_add_book():
     clear_frame()
-    tk.Label(root, text="Add a New Book", font=("Arial", 18)).pack(pady=10)
+    tk.Label(root, text="Add a New Book",highlightbackground="#ffffff" , font=("Arial", 18)).pack(pady=10)
 
     tk.Label(root, text="Book Title:",font=("Arial", 12)).pack()
     title_entry = tk.Entry(root, width=30)
@@ -67,18 +71,23 @@ def show_add_book():
         if not cubby.isdigit():
             messagebox.showerror("Error", "Cubby location must be numeric!")
             return
-        # Save to database
-        marker_id = 42 # get_marker_id_somehow()
+        # Save to databasegit 
+        #book_info = most_recent_book_detection(conn)
+        #book_id = book_info[0]
+        book_id = "2" # TEMPORARY FIX - NEED TO FIGURE OUT HOW TO GET THE BOOK ID FROM THE DETECTION SYSTEM
         cursor.execute("""
             UPDATE markers
             SET name = ?
             WHERE id = ?
-        """, (title, marker_id))
+        """, (title, book_id))
         
-        cursor.execute("""INSERT INTO basket_items (basket_id, item_id)
-            VALUES (?, ?)""", (int(cubby)+100, marker_id)) #because cubby IDs start at 100
+        current_time = time.time()
+        
+        cursor.execute("""INSERT INTO basket_items (basket_id, item_id, last_seen)
+            VALUES (?, ?, ?)
+            ON CONFLICT(basket_id,item_id)
+            DO UPDATE SET last_seen = excluded.last_seen""", (int(cubby)+100, book_id, current_time)) #because cubby IDs start at 100
         conn.commit()
-        
         
         book_locations[title] = cubby
         messagebox.showinfo("Success", f"{title} saved in cubby {cubby}")
@@ -94,7 +103,7 @@ def show_find_book():
     tk.Label(root, text="Find Book Location",background="white", foreground="black", font=("Arial", 18)).pack(pady=10)
 
     tk.Label(root, text="Book Title:",background="white",foreground="black",font=("Arial", 12)).pack(pady = 5)
-    title_entry = tk.Entry(root, width=30,background="white")
+    title_entry = tk.Entry(root, width=30,background="white", foreground="black")
     title_entry.pack()
 
     def find_book():
@@ -115,10 +124,10 @@ def show_find_book():
             return
         conn = sqlite3.connect(DB)
         cursor = conn.cursor()
-        #cursor.execute("SELECT name FROM markers WHERE id = ?", (int(title),))
-        cursor.execute("SELECT b.name FROM basket_items bi JOIN markers m ON m.id = bi.item_id \
-            JOIN markers b ON b.id = bi.basket_id WHERE m.name = ?", (title,))
-        ids = cursor.fetchone()[0] # Fetch the first result
+        cursor.execute("""SELECT b.name FROM basket_items bi JOIN markers m ON m.id = bi.item_id \
+            JOIN markers b ON b.id = bi.basket_id WHERE m.name = ? 
+            ORDER BY bi.last_seen DESC LIMIT 1""", (title,))
+        ids = cursor.fetchone()[0] # Fetch the latest result
         messagebox.showinfo("CUBBY NAME", f"{title} is in cubby: {ids}")
         conn.close()
     
