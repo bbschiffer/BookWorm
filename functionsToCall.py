@@ -10,10 +10,10 @@ def init():
     aruco_dict_name = "DICT_6X6_250"
     marker_length = 0.05  # in meters
     camera = 0
-    yaml = "calib.yaml"
+    calib = "calib.yaml"
     db_path = "presence.db"
     presence_timeout = 2.0  # seconds
-    return aruco_dict_name, marker_length, camera, yaml,db_path, presence_timeout
+    return aruco_dict_name, marker_length, camera, calib,db_path, presence_timeout
 
 # ---------- SQLite presence syncronizing tools ----------
 def db_init(db_path: str):
@@ -347,3 +347,7 @@ def begin_camera_detection(aruco_dict_name, marker_length, camera, yaml, db_path
         key = cv2.waitKey(1) & 0xFF
         if key in (27, ord('q')):  # ESC / q
             break
+
+if __name__ == "__main__":
+    [aruco_dict_name, marker_length, camera, calib ,db_path, presence_timeout] = init()
+    begin_camera_detection(aruco_dict_name, marker_length, camera, calib, db_path, presence_timeout)

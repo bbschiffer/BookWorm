@@ -9,8 +9,8 @@ from functionsToCall import *
 
 DB = os.getenv("PRESENCE_DB", "presence.db")
 
-[aruco_dict_name, marker_length, camera, yaml ,db_path, presence_timeout] = init()
-#begin_camera_detection(aruco_dict_name, marker_length, camera, yaml, db_path, presence_timeout)
+# [aruco_dict_name, marker_length, camera, yaml ,db_path, presence_timeout] = init()
+# begin_camera_detection(aruco_dict_name, marker_length, camera, yaml, db_path, presence_timeout)
 
 # Dictionary to store book locations
 book_locations = {}
@@ -72,9 +72,10 @@ def show_add_book():
             messagebox.showerror("Error", "Cubby location must be numeric!")
             return
         # Save to databasegit 
-        #book_info = most_recent_book_detection(conn)
-        #book_id = book_info[0]
-        book_id = "2" # TEMPORARY FIX - NEED TO FIGURE OUT HOW TO GET THE BOOK ID FROM THE DETECTION SYSTEM
+        book_info = most_recent_book_detection(conn)
+        book_id = book_info[0]
+        print(f"Book ID detected: {book_id}")
+        #book_id = "2" # TEMPORARY FIX - NEED TO FIGURE OUT HOW TO GET THE BOOK ID FROM THE DETECTION SYSTEM
         cursor.execute("""
             UPDATE markers
             SET name = ?
@@ -90,7 +91,7 @@ def show_add_book():
         conn.commit()
         
         book_locations[title] = cubby
-        messagebox.showinfo("Success", f"{title} saved in cubby {cubby}")
+        messagebox.showinfo("Success", f"{title} saved in Cubby {cubby}")
         conn.close()
         show_main_menu()
     button_frame = tk.Frame(root)
