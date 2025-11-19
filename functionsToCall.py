@@ -297,6 +297,8 @@ def begin_camera_detection(aruco_dict_name, marker_length, camera, yaml, db_path
 
     prev = time.time()
     while True:
+        items_list = []
+        baskets_list = []
         ok, frame = cap.read()
         if not ok:
             break
@@ -329,7 +331,7 @@ def begin_camera_detection(aruco_dict_name, marker_length, camera, yaml, db_path
                             baskets_list.append((int(cid), triple))
                         else:
                             items_list.append((int(cid), triple))
-
+                    assign_items_to_baskets(conn, items_list, baskets_list)
                 except Exception as e:
                     cv2.putText(frame, f"DB sync err: {str(e)[:40]}", (10, 150),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,255), 2)
@@ -350,4 +352,5 @@ def begin_camera_detection(aruco_dict_name, marker_length, camera, yaml, db_path
 
 if __name__ == "__main__":
     [aruco_dict_name, marker_length, camera, calib ,db_path, presence_timeout] = init()
+
     begin_camera_detection(aruco_dict_name, marker_length, camera, calib, db_path, presence_timeout)
