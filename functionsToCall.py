@@ -126,7 +126,7 @@ def assign_items_to_baskets(conn, items, baskets, side=0.1):
                 break  # Found containing basket, no need to check others
         '''logic 2'''
         #The items belongs to the most recently seen basket
-        mid, name, t, x, y, z = most_recent_basket_detection(conn)
+        mid, name, t, x, y, z, t_iso = most_recent_basket_detection(conn)
         best = mid
         if best is not None:
             cur.execute("""
@@ -354,3 +354,4 @@ if __name__ == "__main__":
     [aruco_dict_name, marker_length, camera, calib ,db_path, presence_timeout] = init()
 
     begin_camera_detection(aruco_dict_name, marker_length, camera, calib, db_path, presence_timeout)
+
