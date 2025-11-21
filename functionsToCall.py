@@ -105,7 +105,7 @@ def is_basket_id(aruco_id:int)->bool:
 
 def assign_items_to_baskets(conn, items, baskets, side=0.1):
     '''logic 1'''
-    if not items or not baskets:
+    if not items:
         return
     cur = conn.cursor()
     now = time.time()
@@ -113,21 +113,28 @@ def assign_items_to_baskets(conn, items, baskets, side=0.1):
         # Find the basket that contains the item
         best = None
         #The item belongs to a basket if it is within the basket boundaries
-        for bid, (bx,by,bz) in baskets:
-            # Calculate basket boundaries
-            dl = bx - side/2  # left boundary
-            dr = bx + side/2  # right boundary
-            db = by - side  # bottom boundary 
-            dt = by   # top boundary
-            
-            # Check if item is inside basket boundaries
-            if ix >= dl and ix <= dr and iy >= db and iy <= dt:
-                best = bid
-                break  # Found containing basket, no need to check others
+        if baskets:
+            for bid, (bx,by,bz) in baskets:
+                # Calculate basket boundaries
+                dl = bx - side/2  # left boundary
+                dr = bx + side/2  # right boundary
+                db = by - side  # bottom boundary 
+                dt = by   # top boundary
+                
+                # Check if item is inside basket boundaries
+                if ix >= dl and ix <= dr and iy >= db and iy <= dt:
+                    best = bid
+                    break  # Found containing basket, no need to check others
         '''logic 2'''
         #The items belongs to the most recently seen basket
-        mid, name, t, x, y, z, t_iso = most_recent_basket_detection(conn)
-        best = mid
+        if best is None:
+            last = most_recent_basket_detection(conn)
+            if last is None:
+                continue  # no basket in history yet; skip
+            mid, name, t, x, y, z, t_iso = last
+            #mid, name, t, x, y, z, t_iso = most_recent_basket_detection(conn)
+            print(f"Most recent basket detection: ID={mid}, name={name}, time={t_iso}")
+            best = mid
         if best is not None:
             cur.execute("""
                 INSERT INTO basket_items(basket_id, item_id, last_seen)
@@ -292,8 +299,6 @@ def begin_camera_detection(aruco_dict_name, marker_length, camera, yaml, db_path
     if not cap.isOpened():
         print(f"[ERR] cannot turn on camera {camera}")
         sys.exit(1)
-    items_list = []
-    baskets_list = []
 
     prev = time.time()
     while True:
@@ -354,4 +359,5 @@ if __name__ == "__main__":
     [aruco_dict_name, marker_length, camera, calib ,db_path, presence_timeout] = init()
 
     begin_camera_detection(aruco_dict_name, marker_length, camera, calib, db_path, presence_timeout)
+
 
