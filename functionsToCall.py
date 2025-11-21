@@ -13,7 +13,9 @@ def init():
     calib = "calib.yaml"
     db_path = "presence.db"
     presence_timeout = 2.0  # seconds
-    return aruco_dict_name, marker_length, camera, calib,db_path, presence_timeout
+    basket_size = 0.1  # in meters
+    min_dt = 0.8  # seconds
+    return aruco_dict_name, marker_length, camera, calib,db_path, presence_timeout, basket_size, min_dt
 
 # ---------- SQLite presence syncronizing tools ----------
 def db_init(db_path: str):
@@ -103,12 +105,16 @@ BASKET_ID_MIN = 100  #
 def is_basket_id(aruco_id:int)->bool:
     return int(aruco_id) >= BASKET_ID_MIN
 
-def assign_items_to_baskets(conn, items, baskets, side=0.1):
+_last_relation_update = {}
+
+def assign_items_to_baskets(conn, items, baskets, side=0.1, min_dt=0.8):
+    global _last_relation_update
     '''logic 1'''
     if not items:
         return
     cur = conn.cursor()
     now = time.time()
+    last = most_recent_basket_detection(conn)
     for iid, (ix,iy,iz) in items:
         # Find the basket that contains the item
         best = None
@@ -127,14 +133,21 @@ def assign_items_to_baskets(conn, items, baskets, side=0.1):
                     break  # Found containing basket, no need to check others
         '''logic 2'''
         #The items belongs to the most recently seen basket
+        
         if best is None:
-            last = most_recent_basket_detection(conn)
+            
             if last is None:
                 continue  # no basket in history yet; skip
             mid, name, t, x, y, z, t_iso = last
             #mid, name, t, x, y, z, t_iso = most_recent_basket_detection(conn)
             print(f"Most recent basket detection: ID={mid}, name={name}, time={t_iso}")
             best = mid
+
+        key = (int(best), int(iid))
+        last_ts = _last_relation_update.get(key, 0.0)
+        if now - last_ts < min_dt:
+            continue
+
         if best is not None:
             cur.execute("""
                 INSERT INTO basket_items(basket_id, item_id, last_seen)
@@ -142,6 +155,7 @@ def assign_items_to_baskets(conn, items, baskets, side=0.1):
                 ON CONFLICT(basket_id, item_id)
                 DO UPDATE SET last_seen = excluded.last_seen
             """, (int(best), int(iid), now))
+            _last_relation_update[key] = now
     conn.commit()
 import sqlite3
 
@@ -288,7 +302,7 @@ def draw_axis_if_possible(frame, corners, ids, K, dist, marker_length_m):
         cv2.putText(frame, f"|t|={dist_m:.3f} m", (x, y + 20),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 200, 255), 2)
 
-def begin_camera_detection(aruco_dict_name, marker_length, camera, yaml, db_path, presence_timeout):
+def begin_camera_detection(aruco_dict_name, marker_length, camera, yaml, db_path, presence_timeout, basket_size, min_dt):
     detect, dictionary, params = get_detector(aruco_dict_name)
     K, dist = load_cam_params(yaml)
     conn = db_init(db_path)
@@ -299,6 +313,7 @@ def begin_camera_detection(aruco_dict_name, marker_length, camera, yaml, db_path
     if not cap.isOpened():
         print(f"[ERR] cannot turn on camera {camera}")
         sys.exit(1)
+    
 
     prev = time.time()
     while True:
@@ -336,16 +351,18 @@ def begin_camera_detection(aruco_dict_name, marker_length, camera, yaml, db_path
                             baskets_list.append((int(cid), triple))
                         else:
                             items_list.append((int(cid), triple))
-                    assign_items_to_baskets(conn, items_list, baskets_list)
+                    # 2) assign items to baskets
+                    assign_items_to_baskets(conn, items_list, baskets_list, basket_size, min_dt)
+
                 except Exception as e:
                     cv2.putText(frame, f"DB sync err: {str(e)[:40]}", (10, 150),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,255), 2)
-
-        if conn is not None:
-            db_timeout_sweep(conn, presence_timeout)
+            
         # ---- display FPS / preview/ exit with ESC----
         now = time.time()
         fps = 1.0 / max(1e-6, (now - prev))
+        if conn is not None and (now - prev) > 0.5:
+            db_timeout_sweep(conn, presence_timeout)
         prev = now
         cv2.putText(frame, f"FPS: {fps:.1f}", (10,30),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,255,255), 2)
@@ -354,10 +371,9 @@ def begin_camera_detection(aruco_dict_name, marker_length, camera, yaml, db_path
         key = cv2.waitKey(1) & 0xFF
         if key in (27, ord('q')):  # ESC / q
             break
+    cap.release()
+    cv2.destroyAllWindows()
 
-if __name__ == "__main__":
-    [aruco_dict_name, marker_length, camera, calib ,db_path, presence_timeout] = init()
-
-    begin_camera_detection(aruco_dict_name, marker_length, camera, calib, db_path, presence_timeout)
-
+if __name__ == "__main__":  
+    begin_camera_detection(*init())
 
