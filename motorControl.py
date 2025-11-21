@@ -46,7 +46,10 @@ GPIO.setup(limit_upper_y2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.setup(limit_lower_y2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 #This is currently coded to control the X axis.
-def moveMotor(position, distance, velocity):
+def moveMotor(distance, velocity):
+
+    global position
+    
     #400 pulses per revolution, 8mm per revolution
     GPIO.setmode(GPIO.BOARD)
     
@@ -95,10 +98,13 @@ def moveMotor(position, distance, velocity):
     except:
         print("Stopping motor...")
     
-    return [position[0] + distance, position[1]]
+    position = [position[0] + distance, position[1]]
         
 
-def moveGantry(position, distance_x, distance_y, velocity):
+def moveGantry(distance_x, distance_y, velocity):
+
+    global position
+
     #400 pulses per revolution, 8mm per revolution
     GPIO.setmode(GPIO.BOARD)
     
@@ -193,10 +199,12 @@ def moveGantry(position, distance_x, distance_y, velocity):
     #except:
     #    print("Stopping motor...")
     
-    return [position[0] + distance_x, position[1] + distance_y]
+    position = [position[0] + distance_x, position[1] + distance_y]
 
-def zeroGantry(position):
-
+def zeroGantry():
+    
+    global position
+    
     #X AXIS ACTIONS
     
     
@@ -240,7 +248,7 @@ def zeroGantry(position):
         if GPIO.input(limit_lower_y1) == 0:
             limit_y_pressed = 1
             
-    return [0,0]
+    position = [0,0]
     
 
 def moveEndEffector(distance, velocity):
@@ -292,13 +300,16 @@ def moveEndEffector(distance, velocity):
         
     except:
         print("Stopping motor...")
+        
+def getPosition():
+    return position
 
 position = [0,0]
-#moveMotor(position, .008, 0.002) #One rotation at .002 m/s (4 second test)
-position = moveGantry(position, -0.5, 0.5, 0.002) #One rotation at .002 m/s (4 second test)
-#position = moveGantry(position, 0, 0.5, 0.03) #One rotation at .002 m/s (4 second test)
+#moveMotor(.008, 0.002) #One rotation at .002 m/s (4 second test)
+moveGantry(-0.5, 0.5, 0.002) #One rotation at .002 m/s (4 second test)
+#moveGantry(0, 0.5, 0.03) #One rotation at .002 m/s (4 second test)
 
 #time.sleep(2)
-#position = moveGantry(position, 0,-0.2, 0.02) #One rotation at .002 m/s (4 second test)
+#moveGantry(0,-0.2, 0.02) #One rotation at .002 m/s (4 second test)
 #print(position)
 #moveEndEffector(-.02, .002)
