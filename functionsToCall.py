@@ -22,12 +22,17 @@ def db_init(db_path: str):
     """make/open presence.db and ensure tables exist"""
     conn = sqlite3.connect(db_path, check_same_thread=False)
     cur = conn.cursor()
+    # Markers table
     cur.execute("""CREATE TABLE IF NOT EXISTS markers(
         id INTEGER PRIMARY KEY, name TEXT NOT NULL)""")
+    
+    # Presence table
     cur.execute("""CREATE TABLE IF NOT EXISTS presence(
         id INTEGER PRIMARY KEY, name TEXT NOT NULL, present INTEGER NOT NULL,
         last_seen REAL NOT NULL, x REAL, y REAL, z REAL,
         FOREIGN KEY(id) REFERENCES markers(id))""")
+    
+    # History table
     cur.execute("""CREATE TABLE IF NOT EXISTS history(
         id INTEGER, name TEXT NOT NULL, t REAL NOT NULL, 
         x REAL, y REAL, z REAL,
@@ -42,6 +47,16 @@ def db_init(db_path: str):
         FOREIGN KEY(basket_id) REFERENCES markers(id),
         FOREIGN KEY(item_id)   REFERENCES markers(id)
     )""")
+
+    # Basket location table
+    cur.execute("""CREATE TABLE IF NOT EXISTS basket_locations(
+        basket_id  INTEGER PRIMARY KEY,
+        gx         REAL NOT NULL,
+        gy         REAL NOT NULL,
+        last_seen  REAL NOT NULL,
+        FOREIGN KEY(basket_id) REFERENCES markers(id)
+    )""")
+
     # optonal indexes
     cur.execute("""CREATE INDEX IF NOT EXISTS ix_basket_items_basket ON basket_items(basket_id)""")
     cur.execute("""CREATE INDEX IF NOT EXISTS ix_basket_items_item   ON basket_items(item_id)""")
@@ -59,7 +74,7 @@ def db_init(db_path: str):
     return conn
 
 def db_insert_history(conn, aruco_id: int, tvec, name: str|None=None):
-    """把检测结果追加到历史轨迹表"""
+    """add collected info to history table"""
     x, y, z = float(tvec[0]), float(tvec[1]), float(tvec[2])
     now_ts = time.time()
     cur = conn.cursor()
@@ -67,9 +82,22 @@ def db_insert_history(conn, aruco_id: int, tvec, name: str|None=None):
         cur.execute("INSERT OR IGNORE INTO markers(id,name) VALUES(?,?)",
                     (aruco_id, f"ID {aruco_id}"))
     cur.execute("""
-    INSERT INTO history(id,name,t,x,y,z)
-    VALUES(?, COALESCE(?, (SELECT name FROM markers WHERE id=?)), ?, ?, ?, ?)
-    """, (aruco_id, name, aruco_id, now_ts, x, y, z))
+        INSERT INTO history(id,name,t,x,y,z)
+        VALUES(?, COALESCE(?, (SELECT name FROM markers WHERE id=?)), ?, ?, ?, ?)
+        """, (aruco_id, name, aruco_id, now_ts, x, y, z))
+    cur.execute(
+        """
+        DELETE FROM history
+        WHERE id = ?
+          AND t NOT IN (
+              SELECT t FROM history
+              WHERE id = ?
+              ORDER BY t DESC
+              LIMIT 2
+          )
+        """,
+        (aruco_id, aruco_id),
+    )
     conn.commit()
 
 def db_upsert_presence(conn, aruco_id: int, tvec, name: str|None=None):
@@ -91,6 +119,24 @@ def db_upsert_presence(conn, aruco_id: int, tvec, name: str|None=None):
     """, (aruco_id, name, aruco_id, now_ts, x, y, z))
     conn.commit()
 
+def upsert_basket_location(conn, basket_id: int, gantry_pos):
+    """把某个 basket 在龙门坐标系下的位置写入 / 更新到 basket_locations 表"""
+    gx, gy = gantry_pos   # motorControl.getPosition() 返回的 (x, y)
+    gx = float(gx)
+    gy = float(gy)
+    now_ts = time.time()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO basket_locations(basket_id, gx, gy, last_seen)
+        VALUES(?, ?, ?, ?)
+        ON CONFLICT(basket_id) DO UPDATE SET
+            gx        = excluded.gx,
+            gy        = excluded.gy,
+            last_seen = excluded.last_seen
+    """, (int(basket_id), gx, gy, now_ts))
+    conn.commit()
+
+
 def db_timeout_sweep(conn, timeout_s: float):
     """if not seen after timeout_s, id is not present"""
     cur = conn.cursor()
@@ -109,7 +155,6 @@ _last_relation_update = {}
 
 def assign_items_to_baskets(conn, items, baskets, side=0.1, min_dt=0.8):
     global _last_relation_update
-    '''logic 1'''
     if not items:
         return
     cur = conn.cursor()
@@ -118,19 +163,20 @@ def assign_items_to_baskets(conn, items, baskets, side=0.1, min_dt=0.8):
     for iid, (ix,iy,iz) in items:
         # Find the basket that contains the item
         best = None
+        '''logic 1'''
         #The item belongs to a basket if it is within the basket boundaries
-        if baskets:
-            for bid, (bx,by,bz) in baskets:
-                # Calculate basket boundaries
-                dl = bx - side/2  # left boundary
-                dr = bx + side/2  # right boundary
-                db = by - side  # bottom boundary 
-                dt = by   # top boundary
+        # if baskets:
+        #     for bid, (bx,by,bz) in baskets:
+        #         # Calculate basket boundaries
+        #         dl = bx - side/2  # left boundary
+        #         dr = bx + side/2  # right boundary
+        #         db = by - side  # bottom boundary 
+        #         dt = by   # top boundary
                 
-                # Check if item is inside basket boundaries
-                if ix >= dl and ix <= dr and iy >= db and iy <= dt:
-                    best = bid
-                    break  # Found containing basket, no need to check others
+        #         # Check if item is inside basket boundaries
+        #         if ix >= dl and ix <= dr and iy >= db and iy <= dt:
+        #             best = bid
+        #             break  # Found containing basket, no need to check others
         '''logic 2'''
         #The items belongs to the most recently seen basket
         
@@ -227,6 +273,38 @@ def get_basket_xyz_for_item(conn, basketname, baskets):
         if bid == basket_id:
             return (bx, by, bz)
     return None
+
+def get_basket_id_by_book_name(conn, book_name: str):
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT bi.basket_id
+        FROM basket_items AS bi
+        JOIN markers AS m ON m.id = bi.item_id
+        WHERE m.name = ?
+        ORDER BY bi.last_seen DESC
+        LIMIT 1
+    """, (book_name,))
+    row = cur.fetchone()
+    if row is None:
+        return None
+    return int(row[0])
+
+def get_basket_location_by_id(conn, basket_id: int):
+    """
+    Return the gantry position (gx, gy) for the given basket_id,
+    or None if no location has been recorded yet.
+    """
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT gx, gy FROM basket_locations
+        WHERE basket_id = ?
+    """, (int(basket_id),))
+    row = cur.fetchone()
+    if row is None:
+        return None
+    gx, gy = row
+    return float(gx), float(gy)
+
 
 def get_detector(aruco_dict_name: str):
     '''get aruco marker detector function, dictionary and parameters'''
