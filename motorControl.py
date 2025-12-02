@@ -6,10 +6,8 @@ GPIO.setmode(GPIO.BOARD)
 
 #SET PIN NUMBERS
 #X axis pin numbers (PU is pulse, DR is direction)
-#PU_x = 21
-#DR_x = 19
-PU_x = 13
-DR_x = 11
+PU_x = 18
+DR_x = 16
 #Y axis 1 pin numbers (PU is pulse, DR is direction)
 PU_y1 = 10
 DR_y1 = 8
@@ -124,7 +122,7 @@ def moveGantry(distance_x, distance_y, velocity):
         step_delay = travel_time_x/num_pulses_x
     else:
         step_delay = 0
-    step_delay = 2
+    #step_delay = 2
     
     print("Moving X Axis...")
     print("Distance:",distance_x,"m")
@@ -172,9 +170,9 @@ def moveGantry(distance_x, distance_y, velocity):
     for i in range(int(max(num_pulses_x, num_pulses_y)/2 + 1)):
         
         #x axis limit switch failsafe
-        if GPIO.input(limit_upper_x) == 0 or GPIO.input(limit_lower_x) == 0:
-            print("Limit switch collision")
-            break
+        #if GPIO.input(limit_upper_x) == 0 or GPIO.input(limit_lower_x) == 0:
+         #   print("Limit switch collision")
+         #   break
         
         #ADD CODE FOR Y AXIS LIMIT SWITCHES
             
@@ -259,7 +257,7 @@ def moveEndEffector(distance, velocity):
     GPIO.output(PU_ee, GPIO.LOW)
     
     #Calculations for motor movement
-    rotations = abs(distance)/.008;
+    rotations = abs(distance)/.006283;
     num_pulses = int(rotations*400);
     travel_time = abs(distance/velocity);
     if num_pulses > 0:
@@ -304,12 +302,21 @@ def moveEndEffector(distance, velocity):
 def getPosition():
     return position
 
+
+def depositCubby():
+    moveEndEffector(0.04,0.002) # move forward
+    moveGantry(0,0.03,0.02) #move down
+    moveEndEffector(0.01,0.002) # move until trigger
+
 position = [0,0]
 #moveMotor(.008, 0.002) #One rotation at .002 m/s (4 second test)
-moveGantry(-0.5, 0.5, 0.002) #One rotation at .002 m/s (4 second test)
-#moveGantry(0, 0.5, 0.03) #One rotation at .002 m/s (4 second test)
+#moveGantry(0.1, 0, 0.002) #One rotation at .002 m/s (4 second test)
+#moveGantry(0, -0.05, 0.05) #One rotation at .002 m/s (4 second test)
 
 #time.sleep(2)
-#moveGantry(0,-0.2, 0.02) #One rotation at .002 m/s (4 second test)
+#moveEndEffector(-.1,.002)
+moveGantry(0,0.01, 0.03) #One rotation at .002 m/s (4 second test)
+#depositCubby()
 #print(position)
-#moveEndEffector(-.02, .002)
+#moveEndEffector(.005, .002)
+#depositCubby()
