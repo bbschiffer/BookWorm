@@ -45,7 +45,7 @@ def find_centered_basket_y(conn, y_tol=0.01):
             return int(mid)
     return None
 
-
+'''
 def move_until_marker_centered_x(conn, step_x, velocity, x_tol=0.01,
                                  max_steps=1000, sleep_dt=0.05):
     """
@@ -85,7 +85,64 @@ def move_until_marker_centered_y(conn, step_y, velocity, y_tol=0.01,
         time.sleep(sleep_dt)
 
     return None
+'''
+def move_until_marker_centered_x(conn, step_x, velocity,
+                                 x_tol=0.01,
+                                 max_steps=1000,
+                                 sleep_dt=0.05,
+                                 min_x=0.0,
+                                 max_x=2.0):
+    """
+    Safe version: EVERY step checks if the next move stays inside [min_x, max_x].
+    """
+    for _ in range(max_steps):
 
+        # --- 1) Check DB for centered basket ---
+        mid = find_centered_basket_x(conn, x_tol=x_tol)
+        if mid is not None:
+            return mid
+
+        # --- 2) Predict next x BEFORE moving ---
+        cur_x, cur_y = motorControl.getPosition()
+        next_x = cur_x + step_x
+
+        # If next_x would go outside range → stop scanning in this direction
+        if next_x < min_x or next_x > max_x:
+            print("[SAFE-X] Predicted out-of-bounds, stopping X scan.")
+            return None
+
+        # --- 3) Safe to move ---
+        motorControl.moveGantry(step_x, 0, velocity)
+        time.sleep(sleep_dt)
+
+    return None
+
+def move_until_marker_centered_y(conn, step_y, velocity,
+                                 y_tol=0.01,
+                                 max_steps=1000,
+                                 sleep_dt=0.05,
+                                 min_y=0.0,
+                                 max_y=1.5):
+    """
+    Safe version: EVERY step checks if the next move stays inside [min_y, max_y].
+    """
+    for _ in range(max_steps):
+
+        mid = find_centered_basket_y(conn, y_tol=y_tol)
+        if mid is not None:
+            return mid
+
+        cur_x, cur_y = motorControl.getPosition()
+        next_y = cur_y + step_y
+
+        if next_y < min_y or next_y > max_y:
+            print("[SAFE-Y] Predicted out-of-bounds, stopping Y scan.")
+            return None
+
+        motorControl.moveGantry(0, step_y, velocity)
+        time.sleep(sleep_dt)
+
+    return None
 
 def start_camera_thread():
     # create a stop event
@@ -99,6 +156,7 @@ def start_camera_thread():
     cam_thread.start()
     return stop_event, cam_thread
 
+'''
 def perform_scan(start_pos, end_pos, step_size, speed, width, height, conn):
     """
     Perform a scan based on the provided parameters.
@@ -222,7 +280,7 @@ def perform_scan(start_pos, end_pos, step_size, speed, width, height, conn):
         # Always stop the camera thread when scan finishes.
         stop_event.set()
         cam_thread.join()
-
+'''
 
 
 def retract_basket(conn, book_name, speed=50):
@@ -241,6 +299,129 @@ def retract_basket(conn, book_name, speed=50):
         True if a matching basket location was found and the gantry was moved,
         False otherwise.
     """
+
+def perform_scan(start_pos, end_pos, step_size, speed, width, height, conn):
+    """
+    Fully SAFE version: every move is validated before commanding the gantry.
+    """
+
+    # --- boundaries from parameters ---
+    min_x, max_x = 0.0, width
+    min_y, max_y = 0.0, height
+
+    motorControl.zeroGantry()
+    start_x, start_y = start_pos
+    velocity = speed
+    basket_locations = []
+
+    stop_event, cam_thread = start_camera_thread()
+
+    try:
+        # --- Move to starting position safely ---
+        cur_x, cur_y = motorControl.getPosition()
+        dx = start_x - cur_x
+        dy = start_y - cur_y
+
+        # Bound check
+        if not (min_x <= start_x <= max_x and min_y <= start_y <= max_y):
+            print("[SAFE] start_pos is out of bounds!")
+            return basket_locations
+
+        motorControl.moveGantry(dx, dy, velocity)
+
+        # --- 1. Find first row (Y centering) ---
+        row_id = move_until_marker_centered_y(
+            conn,
+            step_y=-0.01,
+            velocity=velocity,
+            y_tol=0.01,
+            min_y=min_y,
+            max_y=max_y
+        )
+
+        if row_id is None:
+            print("[SCAN] Could not find initial row.")
+            return basket_locations
+
+        pos = motorControl.getPosition()
+        basket_locations.append([row_id, pos])
+        functionsToCall.upsert_basket_location(conn, row_id, pos)
+
+        # --- Main scanning loop ---
+        while True:
+            cur_x, cur_y = motorControl.getPosition()
+
+            # Stop if outside Y boundary
+            if not (min_y <= cur_y <= max_y):
+                break
+
+            # --- Move to left boundary safely ---
+            dx = start_x - cur_x
+            next_x = cur_x + dx
+            if next_x < min_x: dx = min_x - cur_x
+            if next_x > max_x: dx = max_x - cur_x
+            motorControl.moveGantry(dx, 0, velocity)
+
+            cur_x, cur_y = motorControl.getPosition()
+
+            # --- Scan across row ---
+            while min_x <= cur_x <= max_x:
+
+                centered_id = move_until_marker_centered_x(
+                    conn,
+                    step_x=step_size,
+                    velocity=velocity,
+                    x_tol=0.01,
+                    min_x=min_x,
+                    max_x=max_x
+                )
+
+                cur_x, cur_y = motorControl.getPosition()
+                if centered_id is None:
+                    break
+
+                pos = motorControl.getPosition()
+                basket_locations.append([centered_id, pos])
+                functionsToCall.upsert_basket_location(conn, centered_id, pos)
+
+                # --- SAFELY perform ±0.25 motion ---
+                down = -0.25
+                up = +0.25
+
+                for delta in (down, up):
+                    cur_x, cur_y = motorControl.getPosition()
+                    next_y = cur_y + delta
+                    if next_y < min_y: delta = min_y - cur_y
+                    if next_y > max_y: delta = max_y - cur_y
+
+                    motorControl.moveGantry(0, delta, 0.1)
+                    time.sleep(0.05)
+
+                cur_x, cur_y = motorControl.getPosition()
+
+            # --- Move to next row (downwards) ---
+            row_id = move_until_marker_centered_y(
+                conn,
+                step_y=-0.01,
+                velocity=velocity,
+                y_tol=0.01,
+                min_y=min_y,
+                max_y=max_y
+            )
+
+            if row_id is None:
+                print("[SCAN] Finished all rows.")
+                break
+
+            pos = motorControl.getPosition()
+            basket_locations.append([row_id, pos])
+            functionsToCall.upsert_basket_location(conn, row_id, pos)
+
+    finally:
+        stop_event.set()
+        cam_thread.join()
+
+    return basket_locations
     # Reset gantry to a known reference position (e.g. home/origin).
     motorControl.zeroGantry()
 
@@ -275,13 +456,21 @@ def retract_basket(conn, book_name, speed=50):
     )
     return True
 
-if __name__ == "__main__": 
+
+
+
+
+if __name__ == "__main__":
+     
     start_pos = (0.0, 0.0)  # starting gantry position (x, y) in m
     end_pos = (2.0, 1.5)    # ending gantry position (x, y) in m
     step_size = 0.05  # 5 cm
     speed = 0.2       # m/s
     width = 2.0       # total scan width in m
     height = 1.5      # total scan height in m 
-    perform_scan(start_pos, end_pos, step_size, speed, width, height, conn)
+    #perform_scan(start_pos, end_pos, step_size, speed, width, height, conn)
+
+    book_name = "book3"
+    retract_basket(conn, book_name, speed=50)
 
 
