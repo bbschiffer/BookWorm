@@ -120,7 +120,7 @@ def db_upsert_presence(conn, aruco_id: int, tvec, name: str|None=None):
     conn.commit()
 
 def upsert_basket_location(conn, basket_id: int, gantry_pos):
-    """把某个 basket 在龙门坐标系下的位置写入 / 更新到 basket_locations 表"""
+    """write basket location in gantry coordinate system / update to basket_locations"""
     gx, gy = gantry_pos   # motorControl.getPosition() 返回的 (x, y)
     gx = float(gx)
     gy = float(gy)
@@ -370,8 +370,8 @@ def draw_axis_if_possible(frame, corners, ids, K, dist, marker_length_m):
         #draw axis
         cv2.drawFrameAxes(frame, K, dist, rvec, tvec, float(marker_length_m) * 0.5)
         X, Y, Z = tvec.reshape(3)
-        dist_m = float(np.linalg.norm([X, Y, Z]))  # 欧氏距离（相机光心到marker中心）
-        Z_m = float(Z)                             # 轴向距离（沿相机Z）
+        dist_m = float(np.linalg.norm([X, Y, Z]))  
+        Z_m = float(Z)                             
         # text position
         c = corners[i][0].mean(axis=0).astype(int)
         x, y = int(c[0]), int(c[1])
@@ -388,6 +388,8 @@ def begin_camera_detection(aruco_dict_name, marker_length, camera, yaml, db_path
     
     
     cap = cv2.VideoCapture(camera)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH,  1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     if not cap.isOpened():
         print(f"[ERR] cannot turn on camera {camera}")
         sys.exit(1)
@@ -454,4 +456,5 @@ def begin_camera_detection(aruco_dict_name, marker_length, camera, yaml, db_path
 
 if __name__ == "__main__":  
     begin_camera_detection(*init())
+
 
