@@ -17,8 +17,10 @@ DR_y2 = 3
 #End effector pin numbers (PU is pulse, DR is direction)
 PU_ee = 21
 DR_ee = 19
+#End effector limit switch
+limit_end_effector = 37
 #X axis limit switches
-limit_upper_x = 37
+limit_upper_x = 32
 limit_lower_x = 40
 #Y axis 1 limit switches (add these)
 limit_upper_y1 = 38
@@ -26,6 +28,9 @@ limit_lower_y1 = 35
 #Y axis 2 limit switches (add these)
 limit_upper_y2 = 36
 limit_lower_y2 = 33
+
+#Initialize position to 0
+position = [0,0]
 
 #SETUP PINS
 GPIO.setup(PU_x, GPIO.OUT)
@@ -36,12 +41,16 @@ GPIO.setup(PU_y2, GPIO.OUT)
 GPIO.setup(DR_y2, GPIO.OUT)
 GPIO.setup(PU_ee, GPIO.OUT)
 GPIO.setup(DR_ee, GPIO.OUT)
+GPIO.setup(limit_end_effector, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.setup(limit_upper_x, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.setup(limit_lower_x, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.setup(limit_upper_y1, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.setup(limit_lower_y1, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.setup(limit_upper_y2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.setup(limit_lower_y2, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+#Gantry limit switch list to iterate through
+gantry_ls = [limit_upper_x,limit_lower_x,limit_upper_y1,limit_lower_y1,limit_upper_y2,limit_lower_y2];
 
 #This is currently coded to control the X axis.
 def moveMotor(distance, velocity):
@@ -167,22 +176,72 @@ def moveGantry(distance_x, distance_y, velocity):
     print(" ")
 
     k = 1
+    
+    #Initialize X and Y travelled which update at each pulse
+    x_travelled = 0
+    y_travelled = 0
+    
+    #Initialize hits list and flag for stopping if limit switch pressed
+    gantry_ls_hits = [0]*len(gantry_ls)
+    stop = False
+    
     for i in range(int(max(num_pulses_x, num_pulses_y)/2 + 1)):
         
-        #x axis limit switch failsafe
-        #if GPIO.input(limit_upper_x) == 0 or GPIO.input(limit_lower_x) == 0:
-         #   print("Limit switch collision")
-         #   break
+        #Check list of limit switches for triggers
+        for j in range(len(gantry_ls)):
+            if GPIO.input(gantry_ls[j]) == 0 and i > 30:
+                gantry_ls_hits[j] += 1
+            else:
+                gantry_ls_hits[j] = 0
         
-        #ADD CODE FOR Y AXIS LIMIT SWITCHES
+        #If a limit switch has been triggered for 10 pulses, flag stop
+        for j in range(len(gantry_ls)):
+            if gantry_ls_hits[j] >= 10:
+                print("limit switch collision")
+                stop = True
+        if stop == True:
+            break
+        
+        ''''
+        for j in range(gantry_ls):
+            if GPIO.input(gantry_ls(j)) == 0 and i > 30:
+                gantry_ls_hits(j) += 1
+            else:
+                gantry_ls_hits(j) == 0
+        
+        for j in range(gantry_ls):
+            if gantry_ls_hits >= 3:
+                print("limit switch collision")
+                break
+        '''
+        '''
+        if i > 30:
+            #x axis limit switch failsafe
+            if GPIO.input(limit_upper_x) == 0 or GPIO.input(limit_lower_x) == 0:
+                print("Limit switch collision")
+                break
             
+            if GPIO.input(limit_upper_y1) == 0 or GPIO.input(limit_lower_y1) == 0:
+                print("Limit switch collision")
+                break
+        '''
+        
         #Pulse each motor high until it has reached num_pulses_i
         if i < (num_pulses_x/2):
             GPIO.output(PU_x, GPIO.HIGH)
+            if distance_x > 0:
+                x_travelled = (i+1)*2/400*.008
+            else:
+                x_travelled = -(i+1)*2/400*.008
             
         if i < (num_pulses_y/2):
             GPIO.output(PU_y1, GPIO.HIGH)
             GPIO.output(PU_y2, GPIO.HIGH)
+            
+            if distance_y > 0:
+                y_travelled = (i+1)*2/400*.008
+            else:
+                y_travelled = -(i+1)*2/400*.008
         time.sleep(step_delay)
         
         #Pulse each motor low until it has reached num_pulses_i
@@ -194,10 +253,12 @@ def moveGantry(distance_x, distance_y, velocity):
             GPIO.output(PU_y2, GPIO.LOW)
         time.sleep(step_delay)
         
+        position = [x_travelled, y_travelled]
+        
     #except:
     #    print("Stopping motor...")
     
-    position = [position[0] + distance_x, position[1] + distance_y]
+    #position = [position[0] + distance_x, position[1] + distance_y]
 
 def zeroGantry():
     
@@ -214,37 +275,83 @@ def zeroGantry():
     
     # Initialize PU and DR pins
     GPIO.output(PU_y1, GPIO.LOW)
-    GPIO.output(DR_x, GPIO.HIGH)
+    GPIO.output(DR_y1, GPIO.LOW)
+    GPIO.output(PU_y2, GPIO.LOW)
+    GPIO.output(DR_y2, GPIO.LOW)
     
     #50,000 pulses per meter.
     #1 m/s = 50,000 / s
     step_delay = .001
     
+    #Initialize hits
+    limit_x_hits = 0
+    limit_y1_hits = 0
+    
+    #Initialize flags to stop motors
     limit_x_pressed = 0
-    limit_y_pressed = 0
-    while limit_x_pressed != 1 and limit_y_pressed != 1:
-            
+    limit_y1_pressed = 0
+    
+    while limit_x_pressed != 1 or limit_y1_pressed != 1:
+        
         #Pulse each motor high until it has reached num_pulses_i
         if limit_x_pressed != 1:
             GPIO.output(PU_x, GPIO.HIGH)
-        if i <= num_pulses_y:
+        if limit_y1_pressed != 1:
             GPIO.output(PU_y1, GPIO.HIGH)
+            GPIO.output(PU_y2, GPIO.HIGH)
         time.sleep(step_delay)
         
         #Pulse each motor low until it has reached num_pulses_i
         if limit_x_pressed != 1:
             GPIO.output(PU_x, GPIO.LOW)
-        if limit_y_pressed != 1:
+        if limit_y1_pressed != 1:
             GPIO.output(PU_y1, GPIO.LOW)
+            GPIO.output(PU_y2, GPIO.LOW)
         time.sleep(step_delay)
 
         #x axis limit switch failsafe
         if GPIO.input(limit_lower_x) == 0:
-            limit_x_pressed = 1
+            limit_x_hits += 1
+        else:
+            limit_x_hits = 0
         
-        #x axis limit switch failsafe
+        #Stop x if hit 10 pulses in a row
+        if limit_x_hits > 10:
+            limit_x_pressed = 1
+            print("x limit hit")
+        
+        #y1 axis limit switch failsafe
         if GPIO.input(limit_lower_y1) == 0:
-            limit_y_pressed = 1
+            limit_y1_hits += 1
+        else:
+            limit_y1_hits = 0
+            
+        #Stop y1 if hit 10 pulses in a row
+        if limit_y1_hits > 10:
+            limit_y1_pressed = 1
+            print("y1 limit hit")
+        
+        #For if we add this limit switch
+        '''
+        
+        if limit_y2_pressed != 1:
+            GPIO.output(PU_y2, GPIO.HIGH)
+            
+        if limit_y2_pressed != 1:
+            GPIO.output(PU_y2, GPIO.LOW)
+            
+        #y2 axis limit switch failsafe
+        if GPIO.input(limit_lower_y2) == 0:
+            limit_y2_hits += 1
+        else:
+            limit_y2_hits = 0
+            
+        #Stop y2 if hit 10 pulses in a row
+        if limit_y2_hits > 10:
+            limit_y2_pressed = 1
+            print("y2 limit hit")
+        '''
+        
             
     position = [0,0]
     
@@ -257,7 +364,7 @@ def moveEndEffector(distance, velocity):
     GPIO.output(PU_ee, GPIO.LOW)
     
     #Calculations for motor movement
-    rotations = abs(distance)/.006283;
+    rotations = abs(distance)/.06283;
     num_pulses = int(rotations*400);
     travel_time = abs(distance/velocity);
     if num_pulses > 0:
@@ -266,7 +373,7 @@ def moveEndEffector(distance, velocity):
         step_delay = .01
     
     #Initialize DR pin
-    if distance > 0:
+    if distance < 0:
         GPIO.output(DR_ee, GPIO.LOW)
     else:
         GPIO.output(DR_ee, GPIO.HIGH)
@@ -280,24 +387,24 @@ def moveEndEffector(distance, velocity):
     print(" ")
 
 
-    try:
-        #Each loop is 2 pulses
-        for i in range(int(num_pulses/2)):
-            
-            #limit switch failsafe
-            if GPIO.input(limit_upper_x) == 0 or GPIO.input(limit_lower_x) == 0:
-                print("Limit switch collision")
-                break
-            
-            GPIO.output(PU_ee, GPIO.HIGH)
-            time.sleep(step_delay)
-            
-            
-            GPIO.output(PU_ee, GPIO.LOW)
-            time.sleep(step_delay)
+
+    #Each loop is 2 pulses
+    for i in range(int(num_pulses/2)):
         
-    except:
-        print("Stopping motor...")
+        #limit switch failsafe
+        if GPIO.input(limit_end_effector) == 0 and i>10:
+            print("Limit switch collision")
+            break
+        
+        GPIO.output(PU_ee, GPIO.HIGH)
+        time.sleep(step_delay)
+        
+        
+        GPIO.output(PU_ee, GPIO.LOW)
+        time.sleep(step_delay)
+        
+
+    print("Stopping motor...")
         
 def getPosition():
     return position
@@ -308,15 +415,55 @@ def depositCubby():
     moveGantry(0,0.03,0.02) #move down
     moveEndEffector(0.01,0.002) # move until trigger
 
-position = [0,0]
-#moveMotor(.008, 0.002) #One rotation at .002 m/s (4 second test)
-#moveGantry(0.1, 0, 0.002) #One rotation at .002 m/s (4 second test)
-#moveGantry(0, -0.05, 0.05) #One rotation at .002 m/s (4 second test)
+def limitSwitchTest2():
+    i= 0
+    stop = False
+    gantry_ls_hits = [0]*len(gantry_ls)
+    
+    print(gantry_ls)
+    print(gantry_ls_hits)
+    
+    while(True):
+        
+        for j in range(len(gantry_ls)):
+            if GPIO.input(gantry_ls[j]) == 0 and i > 30:
+                gantry_ls_hits[j] += 1
+            else:
+                gantry_ls_hits[j] = 0
+        
+        for j in range(len(gantry_ls)):
+            if gantry_ls_hits[j] >= 10:
+                print("limit switch collision")
+                stop = True
+        if stop == True:
+            break
+        i = i+1
+                
+        print(gantry_ls_hits)
+        
+def limitSwitchTest():
+    while(True):
+        if GPIO.input(limit_end_effector) == 0:
+            print("End effector ls pressed")
+        if GPIO.input(limit_upper_y1) == 0:
+            print("Upper y1 ls pressed")
+        if GPIO.input(limit_lower_y1) == 0:
+            print("Lower y1 ls pressed")
+        if GPIO.input(limit_lower_x) == 0:
+            print("Lower x ls pressed")
 
-#time.sleep(2)
-#moveEndEffector(-.1,.002)
-moveGantry(0,0.01, 0.03) #One rotation at .002 m/s (4 second test)
-#depositCubby()
-#print(position)
-#moveEndEffector(.005, .002)
-#depositCubby()
+if __name__ == "__main__":  
+    #moveMotor(.008, 0.002) #One rotation at .002 m/s (4 second test)
+    #moveGantry(0.1, 0, 0.002) #One rotation at .002 m/s (4 second test)
+    #moveGantry(0, -0.05, 0.05) #One rotation at .002 m/s (4 second test)
+
+    #time.sleep(2)
+    #moveEndEffector(-.01,.01)
+    #limitSwitchTest()
+    #limitSwitchTest2()
+    zeroGantry()
+    moveGantry(.1,.2,0.04) #One rotation at .002 m/s (4 second test)
+    #depositCubby()
+    print(position)
+    #moveEndEffector(-.1, .03)
+    #depositCubby()
