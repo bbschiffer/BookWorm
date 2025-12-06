@@ -189,14 +189,14 @@ def moveGantry(distance_x, distance_y, velocity):
         
         #Check list of limit switches for triggers
         for j in range(len(gantry_ls)):
-            if GPIO.input(gantry_ls[j]) == 0 and i > 30:
+            if GPIO.input(gantry_ls[j]) == 0 and i > 100:
                 gantry_ls_hits[j] += 1
             else:
                 gantry_ls_hits[j] = 0
         
         #If a limit switch has been triggered for 10 pulses, flag stop
         for j in range(len(gantry_ls)):
-            if gantry_ls_hits[j] >= 10:
+            if gantry_ls_hits[j] >= 6:
                 print("limit switch collision")
                 stop = True
         if stop == True:
@@ -266,7 +266,6 @@ def zeroGantry():
     
     #X AXIS ACTIONS
     
-    
     # Initialize PU and DR pins
     GPIO.output(PU_x, GPIO.LOW)
     GPIO.output(DR_x, GPIO.HIGH)
@@ -281,7 +280,7 @@ def zeroGantry():
     
     #50,000 pulses per meter.
     #1 m/s = 50,000 / s
-    step_delay = .001
+    step_delay = .000333
     
     #Initialize hits
     limit_x_hits = 0
@@ -316,9 +315,9 @@ def zeroGantry():
             limit_x_hits = 0
         
         #Stop x if hit 10 pulses in a row
-        if limit_x_hits > 10:
+        if limit_x_hits > 6:
             limit_x_pressed = 1
-            print("x limit hit")
+            #print("x limit hit")
         
         #y1 axis limit switch failsafe
         if GPIO.input(limit_lower_y1) == 0:
@@ -329,7 +328,7 @@ def zeroGantry():
         #Stop y1 if hit 10 pulses in a row
         if limit_y1_hits > 10:
             limit_y1_pressed = 1
-            print("y1 limit hit")
+            #print("y1 limit hit")
         
         #For if we add this limit switch
         '''
@@ -378,7 +377,7 @@ def moveEndEffector(distance, velocity):
     else:
         GPIO.output(DR_ee, GPIO.HIGH)
     
-    print("Moving Gantry...")
+    print("Moving End Effector...")
     print("Distance:",distance,"m")
     print("Velocity:",velocity,"m/s")
     print("Rotations:",rotations);
@@ -453,17 +452,21 @@ def limitSwitchTest():
             print("Lower x ls pressed")
 
 if __name__ == "__main__":  
-    #moveMotor(.008, 0.002) #One rotation at .002 m/s (4 second test)
-    #moveGantry(0.1, 0, 0.002) #One rotation at .002 m/s (4 second test)
-    #moveGantry(0, -0.05, 0.05) #One rotation at .002 m/s (4 second test)
+    #moveMotor(.008, 0.002)
+    #moveGantry(0.1, 0, 0.002)
+    #moveGantry(0, -0.05, 0.05)
 
     #time.sleep(2)
     #moveEndEffector(-.01,.01)
     #limitSwitchTest()
     #limitSwitchTest2()
-    zeroGantry()
-    moveGantry(.1,.2,0.04) #One rotation at .002 m/s (4 second test)
+    #zeroGantry()
+    #moveGantry(.337,.573,0.04)
+    #moveGantry(0,-.001,0.04)
+    #moveGantry(0,0,0.04)
     #depositCubby()
+    moveEndEffector(-.2, .03)
+    zeroGantry()
     print(position)
-    #moveEndEffector(-.1, .03)
+    
     #depositCubby()
